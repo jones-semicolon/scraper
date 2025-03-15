@@ -11,6 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "whatwg-url": "^11.0.0",
     "axios": "^1.8.3",
     "body-parser": "^1.20.3",
     "cheerio": "^1.0.0",
