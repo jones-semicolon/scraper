@@ -14,9 +14,7 @@ app.use(bodyParser.json());
 let serviceAccount;
 
 try {
-  serviceAccount = JSON.parse(
-    fs.readFileSync(process.env.GOOGLE_SERVICE_ACCOUNT, "utf-8"),
-  );
+  serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
 } catch (err) {
   console.error("❌ Failed to load service account JSON:", err.message);
   process.exit(1);
