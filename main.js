@@ -1,7 +1,6 @@
-const express = require("express");
+// const express = require("express");
 const bodyParser = require("body-parser");
 const { google } = require("googleapis");
-const fs = require("fs");
 const cheerio = require("cheerio");
 const axios = require("axios");
 require("dotenv").config();
@@ -280,6 +279,6 @@ async function getSheetId(sheetName) {
   return sheet.properties.sheetId;
 }
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
-});
+// app.listen(PORT, () => {
+//   console.log(`🚀 Server running at http://localhost:${PORT}`);
+// });
