@@ -29,30 +29,39 @@ const sheets = google.sheets({ version: "v4", auth });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 app.get("/test", async (req, res) => {
-  const data = "div#terms";
+  const data = "section#terms";
   try {
     const respo = await axios.get(
-      "https://www.ticketmaster.co.uk/creamfields/terms",
+      "https://www.ticketmaster.co.uk/trnsmt/terms",
     );
     const $ = cheerio.load(respo.data);
     const pageTitle = $("title").text().trim();
     const row = [];
+    $("div.tickets").each((_, section) => {
+      const $section = $(section);
+      const h3Text = $section.find("h3").first().text().trim();
+      row.push([h3Text, "date", "link"]);
 
-    $(`${data} h3`).each((_, h3El) => {
-      const section = $(h3El).closest("div.tickets");
+      $section.find(".find-ticket-items").each((_, itemBlock) => {
+        const $item = $(itemBlock);
+        const h4s = $item.find("h4");
+        const ps = $item.find("p");
+        const as = $item.find("a");
 
-      row.push([$(h3El).text().trim(), "date", "link"]);
+        const count = Math.max(h4s.length, ps.length, as.length);
 
-      $(section)
-        .find("h4")
-        .each((j, h4El) => {
-          const h4 = $(h4El).text().trim();
-          const p = $(section).find("p").eq(j).text().trim();
-          const href = $(section).find("a").eq(j).attr("href");
-
+        for (let i = 0; i < count; i++) {
+          const h4 = h4s.eq(i).text().trim();
+          const p = ps.eq(i).text().trim();
+          const rawHref = as.eq(i).attr("href");
+          const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
           row.push([h4, p, href]);
-        });
+        }
+      });
+
+      row.push(["", "", ""]); // optional spacer
     });
+    console.log(row);
 
     res.status(200).json({ message: pageTitle });
   } catch (err) {
