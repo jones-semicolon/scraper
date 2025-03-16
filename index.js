@@ -40,7 +40,7 @@ app.get("/test", async (req, res) => {
     $(`${data} div.container div.tickets`).each((_, section) => {
       const $section = $(section);
       const h3Text = $section.find("h3").first().text().trim();
-      row.push([h3Text, "date", "link"]);
+      row.push([h3Text, "Date", "Link"]);
 
       // Only get h4, p, and a inside .find-ticket-items
       $section.find(".find-ticket-items").each((_, item) => {
@@ -133,7 +133,7 @@ function parseContent(data, html, link) {
   $(`${data} div.container div.tickets`).each((_, section) => {
     const $section = $(section);
     const h3Text = $section.find("h3").first().text().trim();
-    row.push([h3Text, "date", "link"]);
+    row.push([h3Text, "Date", "Link"]);
 
     // Only get h4, p, and a inside .find-ticket-items
     $section.find(".find-ticket-items").each((_, item) => {
@@ -191,7 +191,8 @@ async function formatSheet(sheet, values) {
           wrapStrategy: "WRAP",
         },
       },
-      fields: "userEnteredFormat(horizontalAlignment,wrapStrategy,verticalAlignment)",
+      fields:
+        "userEnteredFormat(horizontalAlignment,wrapStrategy,verticalAlignment)",
     },
   });
   requests.push({
