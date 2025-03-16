@@ -56,7 +56,7 @@ app.get("/test", async (req, res) => {
     });
     console.log(row);
 
-    res.status(200).json({ message: pageTitle });
+    res.status(200).json({ row });
   } catch (err) {
     res.status(400).json({ message: err });
   }
