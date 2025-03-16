@@ -37,29 +37,22 @@ app.get("/test", async (req, res) => {
     const $ = cheerio.load(respo.data);
     const pageTitle = $("title").text().trim();
     const row = [];
-    $("div.tickets").each((_, section) => {
+    $(`${data} div.container div.tickets`).each((_, section) => {
       const $section = $(section);
       const h3Text = $section.find("h3").first().text().trim();
       row.push([h3Text, "date", "link"]);
 
-      $section.find(".find-ticket-items").each((_, itemBlock) => {
-        const $item = $(itemBlock);
-        const h4s = $item.find("h4");
-        const ps = $item.find("p");
-        const as = $item.find("a");
+      // Only get h4, p, and a inside .find-ticket-items
+      $section.find(".find-ticket-items").each((_, item) => {
+        const h4 = $(item).find("h4").first().text().trim();
+        const p = $(item).find("p").first().text().trim();
+        const rawHref = $(item).find("a").first().attr("href");
+        const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
 
-        const count = Math.max(h4s.length, ps.length, as.length);
-
-        for (let i = 0; i < count; i++) {
-          const h4 = h4s.eq(i).text().trim();
-          const p = ps.eq(i).text().trim();
-          const rawHref = as.eq(i).attr("href");
-          const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
-          row.push([h4, p, href]);
-        }
+        row.push([h4, p, href]);
       });
 
-      row.push(["", "", ""]); // optional spacer
+      row.push(["", "", ""]); // Optional spacer
     });
     console.log(row);
 
@@ -137,21 +130,20 @@ function parseContent(data, html, link) {
   row.push([$(`title`).text().trim(), link, ""]);
   row.push(["", "", ""]);
 
-  $(`${data} h3`).each((_, h3El) => {
-    const section = $(h3El).closest("div.tickets");
+  $(`${data} div.container div.tickets`).each((_, section) => {
+    const $section = $(section);
+    const h3Text = $section.find("h3").first().text().trim();
+    row.push([h3Text, "date", "link"]);
 
-    row.push([$(h3El).text().trim(), "Date", "Link"]);
+    // Only get h4, p, and a inside .find-ticket-items
+    $section.find(".find-ticket-items").each((_, item) => {
+      const h4 = $(item).find("h4").first().text().trim();
+      const p = $(item).find("p").first().text().trim();
+      const rawHref = $(item).find("a").first().attr("href");
+      const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
 
-    $(section)
-      .find("h4")
-      .each((j, h4El) => {
-        const h4 = $(h4El).text().trim();
-        const p = $(section).find("p").eq(j).text().trim();
-        const rawHref = $(section).find("a").eq(j).attr("href");
-        const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
-
-        row.push([h4, p, href]);
-      });
+      row.push([h4, p, href]);
+    });
 
     row.push(["", "", ""]);
   });
@@ -195,10 +187,11 @@ async function formatSheet(sheet, values) {
         userEnteredFormat: {
           textFormat: { fontSize: 12 },
           horizontalAlignment: "CENTER",
+          verticalAlignment: "MIDDLE",
           wrapStrategy: "WRAP",
         },
       },
-      fields: "userEnteredFormat.horizontalAlignment",
+      fields: "userEnteredFormat(horizontalAlignment,wrapStrategy,verticalAlignment)",
     },
   });
   requests.push({
