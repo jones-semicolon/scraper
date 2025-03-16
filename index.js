@@ -184,10 +184,22 @@ async function formatSheet(sheet, values) {
       },
       cell: {
         userEnteredFormat: {
+          textFormat: { fontSize: 12 },
           horizontalAlignment: "CENTER",
+          wrapStrategy: "WRAP",
         },
       },
       fields: "userEnteredFormat.horizontalAlignment",
+    },
+  });
+  requests.push({
+    autoResizeDimensions: {
+      dimensions: {
+        sheetId, // get this via Sheets API or from metadata
+        dimension: "COLUMNS",
+        startIndex: 0, // e.g. start from column A
+        endIndex: 3, // exclusive: up to column C
+      },
     },
   });
 
@@ -204,11 +216,13 @@ async function formatSheet(sheet, values) {
         },
         cell: {
           userEnteredFormat: {
-            textFormat: { bold: true, fontSize: 12 },
+            textFormat: { bold: true, fontSize: 14 },
             horizontalAlignment: "CENTER",
+            wrapStrategy: "WRAP",
           },
         },
-        fields: "userEnteredFormat(textFormat,horizontalAlignment)",
+        fields:
+          "userEnteredFormat(wrapStrategy,textFormat,horizontalAlignment)",
       },
     });
   });
