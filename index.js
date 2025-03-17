@@ -29,17 +29,19 @@ const sheets = google.sheets({ version: "v4", auth });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 app.get("/test", async (req, res) => {
-  const data = "section#terms";
+  const data = "section#payment-plans";
   try {
     const respo = await axios.get(
-      "https://www.ticketmaster.co.uk/trnsmt/terms",
+      "https://www.ticketmaster.co.uk/camp-bestival-dorset/payment-plans",
     );
     const $ = cheerio.load(respo.data);
     const pageTitle = $("title").text().trim();
     const row = [];
     $(`${data} div.container div.tickets`).each((_, section) => {
       const $section = $(section);
-      const h3Text = $section.find("h3").first().text().trim();
+      const h3Text = $section.find("h3").first().text().trim()
+        ? ""
+        : $section.find("h2").first().text().trim();
       row.push([h3Text, "Date", "Link"]);
 
       // Only get h4, p, and a inside .find-ticket-items
@@ -132,7 +134,9 @@ function parseContent(data, html, link) {
 
   $(`${data} div.container div.tickets`).each((_, section) => {
     const $section = $(section);
-    const h3Text = $section.find("h3").first().text().trim();
+    const h3Text = $section.find("h3").first().text().trim()
+      ? ""
+      : $section.find("h2").first().text().trim();
     row.push([h3Text, "Date", "Link"]);
 
     // Only get h4, p, and a inside .find-ticket-items
