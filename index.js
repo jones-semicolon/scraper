@@ -29,23 +29,32 @@ const sheets = google.sheets({ version: "v4", auth });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 app.get("/test", async (req, res) => {
-  const data = "section#payment-plans";
+  const data = "section#terms";
   try {
     const respo = await axios.get(
-      "https://www.ticketmaster.co.uk/camp-bestival-dorset/payment-plans",
+      "https://www.ticketmaster.co.uk/download/terms-and-conditions",
     );
     const $ = cheerio.load(respo.data);
     const pageTitle = $("title").text().trim();
     const row = [];
-    $(`${data} div.container div.tickets`).each((_, section) => {
+    let targetElement = `${data} div.container div.tickets`;
+    if ($(targetElement).length === 0) {
+      targetElement = `${data} div.container div.ticket-container`;
+    }
+
+    $(targetElement).each((_, section) => {
       const $section = $(section);
-      const h3Text = $section.find("h3").first().text().trim()
-        ? ""
-        : $section.find("h2").first().text().trim();
+      const h3Text =
+        $section.find("h3").first().text().trim() ||
+        $section.find("h2").first().text().trim();
       row.push([h3Text, "Date", "Link"]);
 
+      let target = ".find-ticket-items";
+      if (targetElement == `${data} div.container div.ticket-container`)
+        target = ".ticket-row";
+
       // Only get h4, p, and a inside .find-ticket-items
-      $section.find(".find-ticket-items").each((_, item) => {
+      $section.find(target).each((_, item) => {
         const h4 = $(item).find("h4").first().text().trim();
         const p = $(item).find("p").first().text().trim();
         const rawHref = $(item).find("a").first().attr("href");
@@ -56,6 +65,7 @@ app.get("/test", async (req, res) => {
 
       row.push(["", "", ""]); // Optional spacer
     });
+
     console.log(row);
 
     res.status(200).json({ row });
@@ -131,8 +141,12 @@ function parseContent(data, html, link) {
   const row = [];
   row.push([$(`title`).text().trim(), link, ""]);
   row.push(["", "", ""]);
+  let targetElement = `${data} div.container div.tickets`;
+  if ($(targetElement).length === 0) {
+    targetElement = `${data} div.container div.ticket-container`;
+  }
 
-  $(`${data} div.container div.tickets`).each((_, section) => {
+  $(targetElement).each((_, section) => {
     const $section = $(section);
     const h3Text =
       $section.find("h3").first().text().trim() == ""
@@ -140,8 +154,12 @@ function parseContent(data, html, link) {
         : $section.find("h3").first().text().trim();
     row.push([h3Text, "Date", "Link"]);
 
+    let target = ".find-ticket-items";
+    if (targetElement == `${data} div.container div.ticket-container`)
+      target = ".ticket-row";
+
     // Only get h4, p, and a inside .find-ticket-items
-    $section.find(".find-ticket-items").each((_, item) => {
+    $section.find(target).each((_, item) => {
       const h4 = $(item).find("h4").first().text().trim();
       const p = $(item).find("p").first().text().trim();
       const rawHref = $(item).find("a").first().attr("href");
