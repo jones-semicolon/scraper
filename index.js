@@ -168,44 +168,64 @@ async function clearSheetDataAndFormatting(sheetName) {
   console.log(`✅ Cleared data and formatting in "${sheetName}"`);
 }
 
-function parseContent(data, html, link) {
-  const $ = cheerio.load(html);
-  const row = [];
-  row.push([$(`title`).text().trim(), link, ""]);
-  row.push(["", "", ""]);
+async function parseContent(data, page, link) {
+  const rows = [];
+  const pageTitle = await page.title();
+  rows.push([pageTitle, link, '']);
+  rows.push(['', '', '']);
+
+
+  // Try the 'tickets' selector first, then fallback to 'ticket-container'
   let targetElement = `${data} div.container div.tickets`;
-  if ($(targetElement).length === 0) {
+  const hasTickets = await page.$(targetElement);
+  if (!hasTickets) {
     targetElement = `${data} div.container div.ticket-container`;
   }
 
-  $(targetElement).each((_, section) => {
-    const $section = $(section);
-    const h3Text =
-      $section.find("h3").first().text().trim() == ""
-        ? $section.find("h2").first().text().trim()
-        : $section.find("h3").first().text().trim();
-    row.push([h3Text, "Date", "Link"]);
 
-    let target = ".find-ticket-items";
-    if (targetElement == `${data} div.container div.ticket-container`)
-      target = ".ticket-row";
+  // Wait a bit for the targetElement to appear (helpful for SPA / JS-rendered pages)
+  try {
+    await page.waitForSelector(targetElement, { timeout: 5000 });
+  } catch (e) {
+    // not fatal — we'll continue and $$eval will return [] if nothing matches
+  }
 
-    // Only get h4, p, and a inside .find-ticket-items
-    $section.find(target).each((_, item) => {
-      const h4 = $(item).find("h4").first().text().trim();
-      const p = $(item).find("p").first().text().trim();
-      const rawHref = $(item).find("a").first().attr("href");
-      const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
 
-      row.push([h4, p, href]);
+  // We pass no external variables except what's needed (none here) and do detection inside the page
+  const sections = await page.$$eval(targetElement, (sections) => {
+    return sections.map((section) => {
+      const h3 = (section.querySelector('h3') && section.querySelector('h3').innerText.trim()) ||
+        (section.querySelector('h2') && section.querySelector('h2').innerText.trim()) || '';
+
+
+      // prefer .find-ticket-items; if .ticket-row exists within this section, use that instead
+      let itemSelector = '.find-ticket-items';
+      if (section.querySelector('.ticket-row')) itemSelector = '.ticket-row';
+
+
+      const items = Array.from(section.querySelectorAll(itemSelector)).map((item) => {
+        const h4 = item.querySelector('h4') ? item.querySelector('h4').innerText.trim() : '';
+        const p = item.querySelector('p') ? item.querySelector('p').innerText.trim() : '';
+        const a = item.querySelector('a');
+        const href = a ? a.href : '';
+        return [h4, p, href ? `=HYPERLINK("${href}", "Click here")` : ''];
+      });
+
+
+      return { title: h3, items };
     });
-
-    row.push(["", "", ""]);
   });
 
-  return row;
-}
 
+  sections.forEach((s) => {
+    rows.push([s.title, 'Date', 'Link']);
+    s.items.forEach((it) => rows.push(it));
+    rows.push(['', '', '']);
+  });
+
+
+  return rows;
+}
 
 async function formatSheet(sheet, values) {
   const sheetId = await getSheetId(sheet);
