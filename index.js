@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const { google } = require("googleapis");
 const cheerio = require("cheerio");
 const axios = require("axios");
-const puppeteer = require("puppeteer-core");
+const puppeteer = require("puppeteer");
 const chromium = require('@sparticuz/chromium');
 require("dotenv").config();
 
@@ -101,12 +101,13 @@ app.post("/data", async (req, res) => {
   }
 
   try {
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
-      headless: chromium.headless,
-    });
+    const browser = await puppeteer.launch({});
+    // const browser = await puppeteer.launch({
+    //   args: chromium.args,
+    //   defaultViewport: chromium.defaultViewport,
+    //   executablePath: await chromium.executablePath(),
+    //   headless: chromium.headless,
+    // });
     const page = await browser.newPage();
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
@@ -131,7 +132,7 @@ app.post("/data", async (req, res) => {
 
     await browser.close();
 
-    res.status(200).json({ message: "Data saved" });
+    res.status(200).json({ message: "Data saved", values });
   } catch (err) {
     console.error("❌ Error saving data:", err);
     res.status(500).json({ error: "Failed to save data." });
@@ -167,43 +168,44 @@ async function clearSheetDataAndFormatting(sheetName) {
   console.log(`✅ Cleared data and formatting in "${sheetName}"`);
 }
 
-async function parseContent(data, page, link) {
+function parseContent(data, html, link) {
+  const $ = cheerio.load(html);
   const row = [];
-  const pageTitle = await page.title();
-  row.push([pageTitle, link, ""]);
+  row.push([$(`title`).text().trim(), link, ""]);
   row.push(["", "", ""]);
-
   let targetElement = `${data} div.container div.tickets`;
-  let exists = await page.$(targetElement);
-  if (!exists) {
+  if ($(targetElement).length === 0) {
     targetElement = `${data} div.container div.ticket-container`;
   }
 
-  const sections = await page.$$eval(targetElement, (sections) => {
-    return sections.map((section) => {
-      const h3 = section.querySelector("h3")?.innerText.trim() || section.querySelector("h2")?.innerText.trim() || "";
-      let target = section.querySelectorAll(".find-ticket-items");
-      if (section.matches("div.ticket-container")) {
-        target = section.querySelectorAll(".ticket-row");
-      }
-      const items = Array.from(target).map((item) => {
-        const h4 = item.querySelector("h4")?.innerText.trim() || "";
-        const p = item.querySelector("p")?.innerText.trim() || "";
-        const href = item.querySelector("a")?.href || "";
-        return [h4, p, href ? `=HYPERLINK("${href}", "Click here")` : ""];
-      });
-      return { title: h3, items };
-    });
-  });
+  $(targetElement).each((_, section) => {
+    const $section = $(section);
+    const h3Text =
+      $section.find("h3").first().text().trim() == ""
+        ? $section.find("h2").first().text().trim()
+        : $section.find("h3").first().text().trim();
+    row.push([h3Text, "Date", "Link"]);
 
-  sections.forEach((section) => {
-    row.push([section.title, "Date", "Link"]);
-    section.items.forEach((item) => row.push(item));
+    let target = ".find-ticket-items";
+    if (targetElement == `${data} div.container div.ticket-container`)
+      target = ".ticket-row";
+
+    // Only get h4, p, and a inside .find-ticket-items
+    $section.find(target).each((_, item) => {
+      const h4 = $(item).find("h4").first().text().trim();
+      const p = $(item).find("p").first().text().trim();
+      const rawHref = $(item).find("a").first().attr("href");
+      const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
+
+      row.push([h4, p, href]);
+    });
+
     row.push(["", "", ""]);
   });
 
   return row;
 }
+
 
 async function formatSheet(sheet, values) {
   const sheetId = await getSheetId(sheet);
