@@ -3,7 +3,8 @@ const bodyParser = require("body-parser");
 const { google } = require("googleapis");
 const cheerio = require("cheerio");
 const axios = require("axios");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
+const chromium = require('@sparticuz/chromium');
 require("dotenv").config();
 
 const app = express();
@@ -32,7 +33,12 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 app.get("/test", async (req, res) => {
   const data = "section#tickets";
   try {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
     const page = await browser.newPage();
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
@@ -95,12 +101,17 @@ app.post("/data", async (req, res) => {
   }
 
   try {
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
     const page = await browser.newPage();
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-        "AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/125.0.0.0 Safari/537.36"
+      "AppleWebKit/537.36 (KHTML, like Gecko) " +
+      "Chrome/125.0.0.0 Safari/537.36"
     );
 
     await page.goto(link, { waitUntil: "domcontentloaded" });
