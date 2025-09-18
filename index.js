@@ -3,7 +3,7 @@ const bodyParser = require("body-parser");
 const { google } = require("googleapis");
 const cheerio = require("cheerio");
 const axios = require("axios");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
 const chromium = require('@sparticuz/chromium');
 require("dotenv").config();
 
@@ -101,13 +101,13 @@ app.post("/data", async (req, res) => {
   }
 
   try {
-    const browser = await puppeteer.launch({});
-    // const browser = await puppeteer.launch({
-    //   args: chromium.args,
-    //   defaultViewport: chromium.defaultViewport,
-    //   executablePath: await chromium.executablePath(),
-    //   headless: chromium.headless,
-    // });
+    // const browser = await puppeteer.launch({});
+    const browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
+    });
     const page = await browser.newPage();
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
