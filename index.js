@@ -3,6 +3,7 @@ const bodyParser = require("body-parser");
 const { google } = require("googleapis");
 const cheerio = require("cheerio");
 const axios = require("axios");
+const puppeteer = require("puppeteer");
 require("dotenv").config();
 
 const app = express();
@@ -31,58 +32,56 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 app.get("/test", async (req, res) => {
   const data = "section#tickets";
   try {
-    const respo = await axios.get(
-      "https://www.ticketmaster.co.uk/download/terms-and-conditions",
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) " +
-            "Chrome/125.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Referer": "https://www.ticketmaster.co.uk/",
-        },
-      }
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+      "AppleWebKit/537.36 (KHTML, like Gecko) " +
+      "Chrome/125.0.0.0 Safari/537.36"
     );
-    const $ = cheerio.load(respo.data);
-    const pageTitle = $("title").text().trim();
-    const row = [];
-    let targetElement = `${data} div.container`;
-    // if ($(targetElement).length === 0) {
-    //   targetElement = `${data} div.container div.ticket-container`;
-    // }
 
-    $(targetElement).each((_, section) => {
-      const $section = $(section);
-      const h3Text =
-        $section.find("h3").first().text().trim() ||
-        $section.find("h2").first().text().trim();
-      row.push([h3Text, "Date", "Link"]);
 
-      let target = ".find-ticket-items";
-      if (targetElement == `${data} div.container div.ticket-container`)
-        target = ".ticket-row";
-
-      // Only get h4, p, and a inside .find-ticket-items
-      $section.find(target).each((_, item) => {
-        const h4 = $(item).find("h4").first().text().trim();
-        const p = $(item).find("p").first().text().trim();
-        const rawHref = $(item).find("a").first().attr("href");
-        const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
-
-        row.push([h4, p, href]);
-      });
-
-      row.push(["", "", ""]); // Optional spacer
+    await page.goto("https://www.ticketmaster.co.uk/download/terms-and-conditions", {
+      waitUntil: "domcontentloaded",
     });
 
-    console.log(row);
+
+    const pageTitle = await page.title();
+
+
+    const row = [];
+    let targetElement = `${data} div.container`;
+
+
+    const content = await page.$$eval(targetElement, (sections) => {
+      return sections.map((section) => {
+        const h3 = section.querySelector("h3")?.innerText.trim() || section.querySelector("h2")?.innerText.trim();
+        const items = Array.from(section.querySelectorAll(".find-ticket-items"))
+          .map((item) => {
+            const h4 = item.querySelector("h4")?.innerText.trim() || "";
+            const p = item.querySelector("p")?.innerText.trim() || "";
+            const href = item.querySelector("a")?.href || "";
+            return [h4, p, href ? `=HYPERLINK("${href}", "Click here")` : ""];
+          });
+        return { title: h3, items };
+      });
+    });
+
+
+    content.forEach(section => {
+      row.push([section.title, "Date", "Link"]);
+      section.items.forEach(item => row.push(item));
+      row.push(["", "", ""]);
+    });
+
+
+    await browser.close();
+
 
     res.status(200).json({ row });
   } catch (err) {
-    // res.status(400).json({ message: err });
-    res.status(403).json({ message: err });
+    console.error(err);
+    res.status(403).json({ message: err.message });
   }
 });
 
@@ -96,22 +95,19 @@ app.post("/data", async (req, res) => {
   }
 
   try {
-    const response = await axios.get(link, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-          "AppleWebKit/537.36 (KHTML, like Gecko) " +
-          "Chrome/125.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.ticketmaster.co.uk/",
-      },
-    });
-    const html = response.data;
+    const browser = await puppeteer.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+        "AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "Chrome/125.0.0.0 Safari/537.36"
+    );
+
+    await page.goto(link, { waitUntil: "domcontentloaded" });
 
     await clearSheetDataAndFormatting(sheet);
 
-    const values = parseContent(content, html, link);
+    const values = await parseContent(content, page, link);
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
@@ -121,6 +117,8 @@ app.post("/data", async (req, res) => {
     });
 
     await formatSheet(sheet, values);
+
+    await browser.close();
 
     res.status(200).json({ message: "Data saved" });
   } catch (err) {
@@ -158,38 +156,38 @@ async function clearSheetDataAndFormatting(sheetName) {
   console.log(`✅ Cleared data and formatting in "${sheetName}"`);
 }
 
-function parseContent(data, html, link) {
-  const $ = cheerio.load(html);
+async function parseContent(data, page, link) {
   const row = [];
-  row.push([$(`title`).text().trim(), link, ""]);
+  const pageTitle = await page.title();
+  row.push([pageTitle, link, ""]);
   row.push(["", "", ""]);
+
   let targetElement = `${data} div.container div.tickets`;
-  if ($(targetElement).length === 0) {
+  let exists = await page.$(targetElement);
+  if (!exists) {
     targetElement = `${data} div.container div.ticket-container`;
   }
 
-  $(targetElement).each((_, section) => {
-    const $section = $(section);
-    const h3Text =
-      $section.find("h3").first().text().trim() == ""
-        ? $section.find("h2").first().text().trim()
-        : $section.find("h3").first().text().trim();
-    row.push([h3Text, "Date", "Link"]);
-
-    let target = ".find-ticket-items";
-    if (targetElement == `${data} div.container div.ticket-container`)
-      target = ".ticket-row";
-
-    // Only get h4, p, and a inside .find-ticket-items
-    $section.find(target).each((_, item) => {
-      const h4 = $(item).find("h4").first().text().trim();
-      const p = $(item).find("p").first().text().trim();
-      const rawHref = $(item).find("a").first().attr("href");
-      const href = rawHref ? `=HYPERLINK("${rawHref}", "Click here")` : "";
-
-      row.push([h4, p, href]);
+  const sections = await page.$$eval(targetElement, (sections) => {
+    return sections.map((section) => {
+      const h3 = section.querySelector("h3")?.innerText.trim() || section.querySelector("h2")?.innerText.trim() || "";
+      let target = section.querySelectorAll(".find-ticket-items");
+      if (section.matches("div.ticket-container")) {
+        target = section.querySelectorAll(".ticket-row");
+      }
+      const items = Array.from(target).map((item) => {
+        const h4 = item.querySelector("h4")?.innerText.trim() || "";
+        const p = item.querySelector("p")?.innerText.trim() || "";
+        const href = item.querySelector("a")?.href || "";
+        return [h4, p, href ? `=HYPERLINK("${href}", "Click here")` : ""];
+      });
+      return { title: h3, items };
     });
+  });
 
+  sections.forEach((section) => {
+    row.push([section.title, "Date", "Link"]);
+    section.items.forEach((item) => row.push(item));
     row.push(["", "", ""]);
   });
 
