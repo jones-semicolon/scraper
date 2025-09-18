@@ -182,7 +182,6 @@ async function parseContent(data, page, link) {
     targetElement = `${data} div.container div.ticket-container`;
   }
 
-
   // Wait a bit for the targetElement to appear (helpful for SPA / JS-rendered pages)
   try {
     await page.waitForSelector(targetElement, { timeout: 5000 });
@@ -190,9 +189,9 @@ async function parseContent(data, page, link) {
     // not fatal — we'll continue and $$eval will return [] if nothing matches
   }
 
-
   // We pass no external variables except what's needed (none here) and do detection inside the page
   const sections = await page.$$eval(targetElement, (sections) => {
+    console.log('Sections found:', sections.length);
     return sections.map((section) => {
       const h3 = (section.querySelector('h3') && section.querySelector('h3').innerText.trim()) ||
         (section.querySelector('h2') && section.querySelector('h2').innerText.trim()) || '';
