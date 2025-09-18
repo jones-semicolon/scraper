@@ -29,18 +29,29 @@ const sheets = google.sheets({ version: "v4", auth });
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 app.get("/test", async (req, res) => {
-  const data = "section#terms";
+  const data = "section#tickets";
   try {
     const respo = await axios.get(
       "https://www.ticketmaster.co.uk/download/terms-and-conditions",
+      {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+            "AppleWebKit/537.36 (KHTML, like Gecko) " +
+            "Chrome/125.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+          "Referer": "https://www.ticketmaster.co.uk/",
+        },
+      }
     );
     const $ = cheerio.load(respo.data);
     const pageTitle = $("title").text().trim();
     const row = [];
-    let targetElement = `${data} div.container div.tickets`;
-    if ($(targetElement).length === 0) {
-      targetElement = `${data} div.container div.ticket-container`;
-    }
+    let targetElement = `${data} div.container`;
+    // if ($(targetElement).length === 0) {
+    //   targetElement = `${data} div.container div.ticket-container`;
+    // }
 
     $(targetElement).each((_, section) => {
       const $section = $(section);
@@ -70,7 +81,8 @@ app.get("/test", async (req, res) => {
 
     res.status(200).json({ row });
   } catch (err) {
-    res.status(400).json({ message: err });
+    // res.status(400).json({ message: err });
+    res.status(403).json({ message: err });
   }
 });
 
@@ -84,7 +96,17 @@ app.post("/data", async (req, res) => {
   }
 
   try {
-    const response = await axios.get(link);
+    const response = await axios.get(link, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+          "AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/125.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.ticketmaster.co.uk/",
+      },
+    });
     const html = response.data;
 
     await clearSheetDataAndFormatting(sheet);
